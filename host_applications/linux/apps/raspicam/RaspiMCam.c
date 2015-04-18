@@ -44,11 +44,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "RaspiMJPEG.h"
-MYSQL_RES *result;
-MYSQL_ROW row;
-time_t motionTime, timeArray[3];
-struct tm *motionLocalTime;
-int motionCounter = 0, motionModifier = 3;
+int video_start_timestamp;
 char query[SQL_QUERY_SIZE];
 
 static void camera_control_callback (MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
@@ -441,6 +437,7 @@ void start_video(unsigned char prepare_buf) {
 /*Get new video ID*/
 	if(cfg_val[c_sql_enable]){
 		sqlQuery(SQL_VIDEO_GET_NEW_ID,NULL,NULL,0);
+		video_start_timestamp = (int)mktime(localtime(&currTime));
 	}
   }
 }
@@ -516,7 +513,9 @@ void stop_video(unsigned char stop_buf) {
 	if(cfg_val[c_sql_enable]){
 		sqlQuery(SQL_MOTION_GET_TOTAL_DURATION,NULL,NULL,0);
 		sqlQuery(SQL_MOTION_GET_MOTIONS,NULL,NULL,0);
-		sqlQuery(SQL_UPDATE_MOTION_DATA,NULL,NULL,0);
+		sprintf(query,"%d",(((int)mktime(localtime(&currTime)))-video_start_timestamp));
+		sqlQuery(SQL_UPDATE_MOTION_DATA,NULL,query,0);
+		memset(query,0,SQL_QUERY_SIZE);
 	}
 	
   }
@@ -1007,102 +1006,6 @@ void start_all (int load_conf) {
    cam_set(c_sensor_region_x);
    cam_set_annotation();
   // printf("loading settings : \e[1;32mOK\e[0;37m\n");
-}
-
-PI_THREAD (pir_motion){
-	motionTime = time(NULL);
-	motionLocalTime = localtime(&motionTime);
-	/*
-	Interrupt handler initialization
-	*/
-	if (wiringPiISR (cfg_val[c_pir_pin], INT_EDGE_RISING, &motion) < 0)
-	{
-		error("Unable to setup ISR for motion!\n",1);
-		//printf ("Unable to setup ISR: %s\n", strerror(errno)) ;
-		//exit(1);
-	}
-
-	//printf("thread up!\nVideo ID: %d\n",video_id[0]);
-	/*Initialize time*/
-	while(running){
-		time(&motionTime);
-		motionLocalTime = localtime(&motionTime);
-		delay(500);
-	}
-	
-	//printf("exited thread\n");
-}
-
-void start_pir_motion(int pin){
-/* Initialize pin (input, rising edge, pull-up). NB! pin is BCM*/
-	char pinInit[32];
-	snprintf(pinInit, 32, "gpio export %d in", pin);
-	system(pinInit);//Make pin program usable
-	delay(100);
-	memset(pinInit,0,32);
-	snprintf(pinInit, 32, "gpio edge %d rising", pin);
-	system(pinInit);//set up BCM pin2 trigger on rising edge
-	delay(100);
-	memset(pinInit,0,32);
-	wiringPiSetupSys();
-	delay(100);
-	snprintf(pinInit, 32, "gpio -g mode %d up", pin);
-	system(pinInit);
-	delay(100);
-	memset(pinInit,0,32);
-	printf("Pin init: \e[1;32mOK\e[0;37m\n");
-	//char *pinInit;
-	//asprintf(&pinInit,"gpio export %d in;gpio edge %d rising;gpio -g mode %d up",pin,pin,pin);
-	//system(pinInit);
-	//wiringPiSetupSys();
-	//free(pinInit);
-	/*if (wiringPiISR (pin, INT_EDGE_RISING, &pir_motion) < 0)
-	{
-		char *error;
-		asprintf(&error, "Could not set up PIR interrupt: %s\n",strerror(errno));
-		error(error, 1);
-	}*/
-	int thread = piThreadCreate(pir_motion);
-	if(thread != 0) error("Could not start PIR motion\n",1);
-}
-
-void motion(void){
-	//snprintf(query,SQL_QUERY_SIZE,"gpio edge %d none",(int)cfg_val[c_pir_pin]);
-	//system(query);
-//	memset(query,0,SQL_QUERY_SIZE);
-	//time(&motionTime);
-//	motionLocalTime = localtime(&motionTime);
-	printf("Motion at %s", asctime(motionLocalTime));				
-	while(1){
-		while(digitalRead(cfg_val[c_pir_pin])){
-			time(&timeArray[0]);
-			delay(500);
-			printf("He is still moving..\n");
-			motionCounter=0;
-		}
-		motionCounter++;
-		//time(&timeArray[1]);
-		if(motionCounter >= motionModifier){
-		/*Write to database : timestamp, video id, motion duration*/
-			snprintf(query, SQL_QUERY_SIZE, "INSERT INTO Motion (video_id, motion_start, motion_duration) \
-				VALUES (%d, FROM_UNIXTIME(%d),%d)", video_id[0], (int)mktime(motionLocalTime), 
-				(int)(difftime(timeArray[0],mktime(motionLocalTime))));
-			/*if (mysql_query(con, query)){
-				error("Could not add motion timestamp\n",0);
-			}*/	
-			memset(query, 0, SQL_QUERY_SIZE);
-			motionCounter = 0;
-			break;
-		}
-		delay(500);
-	}
-	printf("string : %s\n",query);
-	printf("array0 : %d localtime : %d, difftime arr,mot %d difftime mot,arr %d\n", (int)timeArray[0], 
-	(int)mktime(motionLocalTime),(int)(difftime(timeArray[0],mktime(motionLocalTime))),(int)(difftime(mktime(motionLocalTime),timeArray[0])));
-	//snprintf(query,SQL_QUERY_SIZE,"gpio edge %d rising",(int)cfg_val[c_pir_pin]);
-//	system(query);
-//	memset(query,0,SQL_QUERY_SIZE);
-	//printf("Motion duration was : %.lf seconds (stop at %s)\n", difftime(timeArray[0],mktime(motionLocalTime)),asctime(localtime(&timeArray[0])));
 }
 
 void stop_all (void) {
