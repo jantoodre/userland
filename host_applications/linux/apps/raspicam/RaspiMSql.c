@@ -44,7 +44,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 MYSQL *con;
 char query[SQL_QUERY_SIZE];
 unsigned int video_id[2];
-int total_motion_duration = 0, nof_motions = 0;
+int total_motion_duration = 0, nof_motions = 0, video_length = 0;
 
 char *sql_key[SQL_CFG_SIZE + 1] ={
    "node_number",
@@ -83,7 +83,6 @@ extern bool sqlQuery(QUERY_ID id, void *queryResult, char *str, size_t size){
 			memset(query,0,SQL_QUERY_SIZE);
 			return 1;				
 		case SQL_VIDEO_NEW_VIDEO: 
-			//make sure that str 0 at the end doesnt FSU
 			snprintf(query, SQL_QUERY_SIZE, "INSERT INTO Videos (cam_id, filename) VALUES ('%d', '%s')", (int)sql_val[c_node_number], str);
 			if (mysql_query(con, query)){
 				//error("Could not add new entry for videos",1);
@@ -104,18 +103,23 @@ extern bool sqlQuery(QUERY_ID id, void *queryResult, char *str, size_t size){
 				row = mysql_fetch_row(result);
 				video_id[0] = atoi(row[0]);
 				mysql_free_result(result);
+				//Send new video ID to Motion
+				setVideoID(video_id[0]);
 			}
 			memset(query,0,SQL_QUERY_SIZE);
 			return 1;
 		case SQL_MOTION_LOG:
-			if(str == NULL) exit(1);//error("Empty notification string!\n",1);
+			if(str == NULL){
+				printf("Error: Could not add motion");
+				exit(1);//error("Empty notification string!\n",1);
+			}
 			if(mysql_query(con, str)){
 				//error("Inserting notification to database failed!",1);
 				exit(1);
 			}
 			return 1;
 		case SQL_MOTION_GET_MOTIONS: 
-			snprintf(query,SQL_QUERY_SIZE,"SELECT COUNT(*) FROM Motion WHERE video_id='%d'", video_id[1]);
+			snprintf(query,SQL_QUERY_SIZE,"SELECT COUNT(*) FROM Motion WHERE video_id='%d'", video_id[0]);
 			if(mysql_query(con, query)){
 				memset(query,0,SQL_QUERY_SIZE);
 				return 0;
@@ -132,7 +136,7 @@ extern bool sqlQuery(QUERY_ID id, void *queryResult, char *str, size_t size){
 			memset(query,0,SQL_QUERY_SIZE);
 			return 1;
 		case SQL_MOTION_GET_TOTAL_DURATION: 
-			snprintf(query,SQL_QUERY_SIZE,"SELECT SUM(motion_duration) FROM Motion WHERE video_id='%d'", video_id[1]);
+			snprintf(query,SQL_QUERY_SIZE,"SELECT SUM(motion_duration) FROM Motion WHERE video_id='%d'", video_id[0]);
 			if(mysql_query(con, query)){
 				//error("Getting total motion duration failed",1);
 				memset(query,0,SQL_QUERY_SIZE);
@@ -150,8 +154,10 @@ extern bool sqlQuery(QUERY_ID id, void *queryResult, char *str, size_t size){
 			memset(query,0,SQL_QUERY_SIZE);
 			return 1;
 		case SQL_UPDATE_MOTION_DATA: 
-			snprintf(query,SQL_QUERY_SIZE,"UPDATE Videos SET nof_motions='%d',total_motion_duration='%d',ready='1' WHERE id='%d'"
-			, nof_motions, total_motion_duration, video_id[0]);
+			video_length = atoi(str);
+			snprintf(query,SQL_QUERY_SIZE,"UPDATE Videos SET video_length='%d',nof_motions='%d',total_motion_duration='%d',ready='1' WHERE id='%d'"
+			, video_length, nof_motions, total_motion_duration, video_id[0]);
+			video_length = 0;
 			if(mysql_query(con, query)){
 				//error("Update query to database failed",0);
 				memset(query,0,SQL_QUERY_SIZE);
