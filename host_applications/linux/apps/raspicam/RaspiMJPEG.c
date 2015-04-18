@@ -84,7 +84,12 @@ char *cfg_key[] ={
    "MP4Box","MP4Box_fps",
    "image_width","image_height","image_quality","tl_interval",
    "preview_path","image_path","lapse_path","video_path","status_file","control_file","media_path","subdir_char",
-   "thumb_gen","autostart","motion_detection","user_config","log_file"
+   "thumb_gen","autostart","motion_detection","user_config","log_file",
+   "notify_level","sql_enable","pir_motion","pir_pin"
+};
+
+char *log_key[] ={//
+	"Default","Info","Success","Alert","Warning","Error"
 };
 
 
@@ -139,7 +144,7 @@ void addValue(int keyI, char *value, int both){
 }
 
 void addUserValue(int key, char *value){
-   printLog("Change: %s = %s\n", cfg_key[key], value);
+   printLog(INFO, "Change: %s = %s\n", cfg_key[key], value);
    addValue(key, value, 0);
 }
 
@@ -202,7 +207,6 @@ int main (int argc, char* argv[]) {
          cfg_val[c_motion_detection] = 1;
       }
    }
-
    //default base media path
    asprintf(&cfg_stru[c_media_path], "%s", "/var/www/media");
    
@@ -213,23 +217,33 @@ int main (int argc, char* argv[]) {
    if (cfg_stru[c_user_config] != 0)
       read_config(cfg_stru[c_user_config], 0);
 
-   printLog("RaspiMJPEG Version %s\n", VERSION);
+   //printLog(DEFAULT, "RaspiMJPEG Version %s\n", VERSION);
    
    if(cfg_val[c_autostart]) start_all(0);
    if(cfg_val[c_motion_detection]) {
       if(system("motion") == -1) error("Could not start Motion", 1);
    }
-
+   if(cfg_val[c_pir_motion]){
+		start_pir_motion(cfg_val[c_pir_pin]);
+   }
+   //
+   // mysql
+   //
+   if(cfg_val[c_sql_enable]){
+		if(!sqlQuery(SQL_INIT,NULL,"/etc/raspimsql",0)){
+			error("SQL init failed\n",1);
+		}
+   }
    //
    // run
    //
    if(cfg_val[c_autostart]) {
-      if(cfg_stru[c_control_file] != 0) printLog("MJPEG streaming, ready to receive commands\n");
-      else printLog("MJPEG streaming\n");
+      if(cfg_stru[c_control_file] != 0) printLog(SUCCESS, "MJPEG stream started! Ready to receive commands\n");
+      else printLog(SUCCESS, "MJPEG stream ready!\n");
    }
    else {
-      if(cfg_stru[c_control_file] != 0) printLog("MJPEG idle, ready to receive commands\n");
-      else printLog("MJPEG idle\n");
+      if(cfg_stru[c_control_file] != 0) printLog(INFO, "MJPEG idle, ready to receive commands\n");
+      else printLog(INFO, "MJPEG idle\n");
    }
 
    struct sigaction action;
@@ -274,10 +288,11 @@ int main (int argc, char* argv[]) {
       usleep(100000);
    }
   
-   printLog("SIGINT/SIGTERM received, stopping\n");
+   printLog(ALERT, "Stream stopped : SIGINT/SIGTERM received\n");
    //
    // tidy up
    //
    if(!idle) stop_all();
+   sqlQuery(SQL_CLEAN,NULL,NULL,0);
    return 0;
 }
