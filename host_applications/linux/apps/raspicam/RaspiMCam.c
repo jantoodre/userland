@@ -44,6 +44,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "RaspiMJPEG.h"
+MYSQL_RES *result;
+MYSQL_ROW row;
+time_t motionTime, timeArray[3];
+struct tm *motionLocalTime;
+int motionCounter = 0, motionModifier = 3;
+char query[SQL_QUERY_SIZE];
 
 static void camera_control_callback (MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
 
@@ -148,6 +154,7 @@ static void jpegencoder2_buffer_callback (MMAL_PORT_T *port, MMAL_BUFFER_HEADER_
 static void h264encoder_buffer_callback (MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer)  {
 
   int bytes_written = buffer->length;
+  int iframe_error = 0;
 
   if(buffering_toggle) {
     
@@ -168,8 +175,6 @@ static void h264encoder_buffer_callback (MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T
     }
     else {
       static int frame_start = -1;
-      static int no_iframe_bytes = 0;
-      static int iframe_requested = 0;
       int i;
 
       if(frame_start == -1)
@@ -178,22 +183,12 @@ static void h264encoder_buffer_callback (MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T
       if(buffer->flags & MMAL_BUFFER_HEADER_FLAG_KEYFRAME) {
         iframe_buff[iframe_buff_wpos] = frame_start;
         iframe_buff_wpos = (iframe_buff_wpos + 1) % IFRAME_BUFSIZE;
-        no_iframe_bytes = 0;
-        iframe_requested = 0;
-      }
-      else {
-        no_iframe_bytes += buffer->length;
-        if(no_iframe_bytes > cb_len/4) {
-          if(!iframe_requested) {
-            mmal_port_parameter_set_boolean(camera->output[1], MMAL_PARAMETER_VIDEO_REQUEST_I_FRAME, 1);
-            iframe_requested = 1;
-          }
-        }
       }
 
       if(buffer->flags & MMAL_BUFFER_HEADER_FLAG_FRAME_END)
         frame_start = -1;
 
+      // If we overtake the iframe rptr then move the rptr along
       if((iframe_buff_rpos + 1) % IFRAME_BUFSIZE != iframe_buff_wpos)
         while(
               (
@@ -208,6 +203,7 @@ static void h264encoder_buffer_callback (MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T
           iframe_buff_rpos = (iframe_buff_rpos + 1) % IFRAME_BUFSIZE;
 
       mmal_buffer_header_mem_lock(buffer);
+      // We are pushing data into a circular buffer
       memcpy(cb_buff + cb_wptr, buffer->data, copy_to_end);
       memcpy(cb_buff, buffer->data + copy_to_end, copy_to_start);
       mmal_buffer_header_mem_unlock(buffer);
@@ -220,9 +216,10 @@ static void h264encoder_buffer_callback (MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T
       for(i = iframe_buff_rpos; i != iframe_buff_wpos; i = (i + 1) % IFRAME_BUFSIZE) {
         int p = iframe_buff[i];
         if(cb_buff[p] != 0 || cb_buff[p+1] != 0 || cb_buff[p+2] != 0 || cb_buff[p+3] != 1) {
-          error("Error in iframe list", 0);
+          iframe_error = 1;
         }
       }
+      if (iframe_error) error("Error in iframe list", 0);
     }
   }
   else if(buffer->length) {
@@ -353,7 +350,7 @@ void capt_img (void) {
    if(jpegoutput2_file != NULL){ 
       status = mmal_port_parameter_set_boolean(camera->output[2], MMAL_PARAMETER_CAPTURE, 1);
       if(status == MMAL_SUCCESS) {
-         printLog("Capturing image\n");
+         printLog(INFO, "Capturing image\n");
          i_capturing = 1;
          updateStatus();
       } else {
@@ -366,7 +363,7 @@ void capt_img (void) {
 
 void start_video(unsigned char prepare_buf) {
   int i, max;
-  char *filename_temp;
+  char *filename_temp, *filename;
 
   if(!v_capturing || prepare_buf) {
     if(prepare_buf) {
@@ -397,9 +394,16 @@ void start_video(unsigned char prepare_buf) {
       else {
         makeFilename(&filename_temp, cfg_stru[c_video_path]);
       }
+	  /*get only filename*/
+	  filename = strrchr(filename_temp, '/');
+	  
       thumb_create(filename_temp, 'v');
       createMediaPath(filename_temp);
       h264output_file = fopen(filename_temp, "wb");
+/*Add new video entry to database*/
+	if(cfg_val[c_sql_enable]){
+		sqlQuery(SQL_VIDEO_NEW_VIDEO,NULL,++filename,0);
+	}
       free(filename_temp);
       if(!h264output_file) {error("Could not open/create video-file", 0); return;}
       if(buffering) {
@@ -430,11 +434,14 @@ void start_video(unsigned char prepare_buf) {
       if(status != MMAL_SUCCESS) {error("Could not start capture", 0); return;}
     }
     if(!prepare_buf) {
-      printLog("Capturing started\n");
+      printLog(INFO, "Capturing started\n");
       v_capturing = 1;
     }
-    cam_set_ip();
     updateStatus();
+/*Get new video ID*/
+	if(cfg_val[c_sql_enable]){
+		sqlQuery(SQL_VIDEO_GET_NEW_ID,NULL,NULL,0);
+	}
   }
 }
 
@@ -472,7 +479,7 @@ void stop_video(unsigned char stop_buf) {
       }
       fclose(h264output_file);
       h264output_file = NULL;
-      printLog("Capturing stopped\n");
+      printLog(INFO, "Capturing stopped\n");
       v_capturing = 0;
       if(buffering) {
         cam_set_buffer();
@@ -480,7 +487,7 @@ void stop_video(unsigned char stop_buf) {
       if(cfg_val[c_MP4Box]) {
         asprintf(&filename_temp, "%s.h264", filename_recording);
         if(cfg_val[c_MP4Box] == 1) {
-          printLog("Boxing started\n");
+          printLog(INFO, "Boxing started\n");
           v_boxing = 1;
           updateStatus();
           background = ' ';
@@ -491,12 +498,12 @@ void stop_video(unsigned char stop_buf) {
         asprintf(&cmd_temp, "(MP4Box -fps %i -add %s.h264 %s > /dev/null;rm \"%s\";) %c", cfg_val[c_MP4Box_fps], filename_recording, filename_recording, filename_temp, background);
         if(cfg_val[c_MP4Box] == 1) {
           if(system(cmd_temp) == -1) error("Could not start MP4Box", 0);
-          printLog("Boxing operation stopped\n");
+          printLog(INFO, "Boxing operation stopped\n");
           v_boxing = 0;
         }
         else {
           system(cmd_temp);
-          printLog("Boxing in background\n");
+          printLog(INFO, "Boxing in background\n");
         }
         free(filename_temp);
         free(filename_recording);
@@ -504,8 +511,14 @@ void stop_video(unsigned char stop_buf) {
       }
       video_cnt++;
     }
-    cam_set_ip();
-    updateStatus();
+    updateStatus();	
+/*Update video data*/
+	if(cfg_val[c_sql_enable]){
+		sqlQuery(SQL_MOTION_GET_TOTAL_DURATION,NULL,NULL,0);
+		sqlQuery(SQL_MOTION_GET_MOTIONS,NULL,NULL,0);
+		sqlQuery(SQL_UPDATE_MOTION_DATA,NULL,NULL,0);
+	}
+	
   }
 }
 
@@ -536,21 +549,6 @@ void cam_set_buffer () {
       start_video(1);
     }
   }
-}
-
-void cam_set_ip () {
-
-  int ip = STD_INTRAPERIOD;
-
-  if(!v_capturing && buffering) {
-    ip = ((long long)cfg_val[c_video_buffer]*(long long)cfg_val[c_video_fps]) / 4000;
-    if(ip > STD_INTRAPERIOD) ip = STD_INTRAPERIOD;
-  }
-
-  MMAL_PARAMETER_UINT32_T param = {{ MMAL_PARAMETER_INTRAPERIOD, sizeof(param)}, ip};
-  status = mmal_port_parameter_set(h264encoder->output[0], &param.hdr);
-  if(status != MMAL_SUCCESS) error("Could not set intraperiod", 0);
-
 }
 
 void cam_set_em () {
@@ -691,20 +689,20 @@ void cam_set(int key) {
          control = 3;id = MMAL_PARAMETER_SHUTTER_SPEED;break;
       case c_rotation:
          status = mmal_port_parameter_set_int32(camera->output[0], MMAL_PARAMETER_ROTATION, cfg_val[c_rotation]);
-         if(status != MMAL_SUCCESS) printLog("Could not set rotation (0)\n");
+         if(status != MMAL_SUCCESS) printLog(ALERT, "Could not set rotation (0)\n");
          status = mmal_port_parameter_set_int32(camera->output[1], MMAL_PARAMETER_ROTATION, cfg_val[c_rotation]);
-         if(status != MMAL_SUCCESS) printLog("Could not set rotation (1)\n");
+         if(status != MMAL_SUCCESS) printLog(ALERT, "Could not set rotation (1)\n");
          status = mmal_port_parameter_set_int32(camera->output[2], MMAL_PARAMETER_ROTATION, cfg_val[c_rotation]);
-         if(status != MMAL_SUCCESS) printLog("Could not set rotation (2)\n");
+         if(status != MMAL_SUCCESS) printLog(ALERT, "Could not set rotation (2)\n");
          break;
       case c_image_quality:
          status = mmal_port_parameter_set_uint32(jpegencoder2->output[0], MMAL_PARAMETER_JPEG_Q_FACTOR, cfg_val[c_image_quality]);
-         if(status != MMAL_SUCCESS) printLog("Could not set quality\n");
+         if(status != MMAL_SUCCESS) printLog(ALERT, "Could not set quality\n");
          break;
       case c_video_bitrate:
          h264encoder->output[0]->format->bitrate = cfg_val[c_video_bitrate];
          status = mmal_port_format_commit(h264encoder->output[0]);
-         if(status != MMAL_SUCCESS) printLog("Could not set bitrate\n");
+         if(status != MMAL_SUCCESS) printLog(ALERT, "Could not set bitrate\n");
          break;
       case c_video_buffer:
          cam_set_buffer();
@@ -736,19 +734,19 @@ void cam_set(int key) {
       case 1: //rational
          value.num = cfg_val[key];
          status = mmal_port_parameter_set_rational(camera->control, id, value);
-         if(status != MMAL_SUCCESS) printLog("Could not set %s\n", cfg_key[key]);
+         if(status != MMAL_SUCCESS) printLog(ALERT, "Could not set %s\n", cfg_key[key]);
          break;
       case 2: //int32
          status = mmal_port_parameter_set_int32(camera->control, id, cfg_val[key]);
-         if(status != MMAL_SUCCESS) printLog("Could not set %s\n", cfg_key[key]);
+         if(status != MMAL_SUCCESS) printLog(ALERT, "Could not set %s\n", cfg_key[key]);
          break;
       case 3: //uint32
          status = mmal_port_parameter_set_uint32(camera->control, id, cfg_val[key]);
-         if(status != MMAL_SUCCESS) printLog("Could not set %s\n", cfg_key[key]);
+         if(status != MMAL_SUCCESS) printLog(ALERT, "Could not set %s\n", cfg_key[key]);
          break;
       case 4: //boolean
          status = mmal_port_parameter_set_boolean(camera->control, id, cfg_val[key]);
-         if(status != MMAL_SUCCESS) printLog("Could not set %s\n", cfg_key[key]);
+         if(status != MMAL_SUCCESS) printLog(ALERT, "Could not set %s\n", cfg_key[key]);
          break;
    }
 }
@@ -832,7 +830,6 @@ void start_all (int load_conf) {
 
    status = mmal_component_enable(camera);
    if(status != MMAL_SUCCESS) error("Could not enable camera", 1);
-
    //
    // create jpeg-encoder
    //
@@ -856,7 +853,7 @@ void start_all (int load_conf) {
    if(status != MMAL_SUCCESS) error("Could not enable image encoder", 1);
    pool_jpegencoder = mmal_port_pool_create(jpegencoder->output[0], jpegencoder->output[0]->buffer_num, jpegencoder->output[0]->buffer_size);
    if(!pool_jpegencoder) error("Could not create image buffer pool", 1);
-
+	
    //
    // create second jpeg-encoder
    //
@@ -880,7 +877,7 @@ void start_all (int load_conf) {
    if(status != MMAL_SUCCESS) error("Could not enable image encoder 2", 1);
    pool_jpegencoder2 = mmal_port_pool_create(jpegencoder2->output[0], jpegencoder2->output[0]->buffer_num, jpegencoder2->output[0]->buffer_size);
    if(!pool_jpegencoder2) error("Could not create image buffer pool 2", 1);
-
+	
    //
    // create h264-encoder
    //
@@ -922,7 +919,6 @@ void start_all (int load_conf) {
 
    status = mmal_port_parameter_set_boolean(h264encoder->output[0], MMAL_PARAMETER_VIDEO_ENCODE_INLINE_HEADER, 0);
    if(status != MMAL_SUCCESS) error("Could not set inline flag", 1);
-
    //
    // create image-resizer
    //
@@ -985,7 +981,7 @@ void start_all (int load_conf) {
       status = mmal_port_send_buffer(jpegencoder2->output[0], jpegbuffer2);
       if(status != MMAL_SUCCESS) error("Could not send buffers to jpeg port 2", 1);
    }
-  
+	//printf("connect: \e[1;32mOK\e[0;37m\n");
    //
    // settings
    //
@@ -1010,8 +1006,104 @@ void start_all (int load_conf) {
    cam_set(c_hflip);
    cam_set(c_sensor_region_x);
    cam_set_annotation();
+  // printf("loading settings : \e[1;32mOK\e[0;37m\n");
 }
 
+PI_THREAD (pir_motion){
+	motionTime = time(NULL);
+	motionLocalTime = localtime(&motionTime);
+	/*
+	Interrupt handler initialization
+	*/
+	if (wiringPiISR (cfg_val[c_pir_pin], INT_EDGE_RISING, &motion) < 0)
+	{
+		error("Unable to setup ISR for motion!\n",1);
+		//printf ("Unable to setup ISR: %s\n", strerror(errno)) ;
+		//exit(1);
+	}
+
+	//printf("thread up!\nVideo ID: %d\n",video_id[0]);
+	/*Initialize time*/
+	while(running){
+		time(&motionTime);
+		motionLocalTime = localtime(&motionTime);
+		delay(500);
+	}
+	
+	//printf("exited thread\n");
+}
+
+void start_pir_motion(int pin){
+/* Initialize pin (input, rising edge, pull-up). NB! pin is BCM*/
+	char pinInit[32];
+	snprintf(pinInit, 32, "gpio export %d in", pin);
+	system(pinInit);//Make pin program usable
+	delay(100);
+	memset(pinInit,0,32);
+	snprintf(pinInit, 32, "gpio edge %d rising", pin);
+	system(pinInit);//set up BCM pin2 trigger on rising edge
+	delay(100);
+	memset(pinInit,0,32);
+	wiringPiSetupSys();
+	delay(100);
+	snprintf(pinInit, 32, "gpio -g mode %d up", pin);
+	system(pinInit);
+	delay(100);
+	memset(pinInit,0,32);
+	printf("Pin init: \e[1;32mOK\e[0;37m\n");
+	//char *pinInit;
+	//asprintf(&pinInit,"gpio export %d in;gpio edge %d rising;gpio -g mode %d up",pin,pin,pin);
+	//system(pinInit);
+	//wiringPiSetupSys();
+	//free(pinInit);
+	/*if (wiringPiISR (pin, INT_EDGE_RISING, &pir_motion) < 0)
+	{
+		char *error;
+		asprintf(&error, "Could not set up PIR interrupt: %s\n",strerror(errno));
+		error(error, 1);
+	}*/
+	int thread = piThreadCreate(pir_motion);
+	if(thread != 0) error("Could not start PIR motion\n",1);
+}
+
+void motion(void){
+	//snprintf(query,SQL_QUERY_SIZE,"gpio edge %d none",(int)cfg_val[c_pir_pin]);
+	//system(query);
+//	memset(query,0,SQL_QUERY_SIZE);
+	//time(&motionTime);
+//	motionLocalTime = localtime(&motionTime);
+	printf("Motion at %s", asctime(motionLocalTime));				
+	while(1){
+		while(digitalRead(cfg_val[c_pir_pin])){
+			time(&timeArray[0]);
+			delay(500);
+			printf("He is still moving..\n");
+			motionCounter=0;
+		}
+		motionCounter++;
+		//time(&timeArray[1]);
+		if(motionCounter >= motionModifier){
+		/*Write to database : timestamp, video id, motion duration*/
+			snprintf(query, SQL_QUERY_SIZE, "INSERT INTO Motion (video_id, motion_start, motion_duration) \
+				VALUES (%d, FROM_UNIXTIME(%d),%d)", video_id[0], (int)mktime(motionLocalTime), 
+				(int)(difftime(timeArray[0],mktime(motionLocalTime))));
+			/*if (mysql_query(con, query)){
+				error("Could not add motion timestamp\n",0);
+			}*/	
+			memset(query, 0, SQL_QUERY_SIZE);
+			motionCounter = 0;
+			break;
+		}
+		delay(500);
+	}
+	printf("string : %s\n",query);
+	printf("array0 : %d localtime : %d, difftime arr,mot %d difftime mot,arr %d\n", (int)timeArray[0], 
+	(int)mktime(motionLocalTime),(int)(difftime(timeArray[0],mktime(motionLocalTime))),(int)(difftime(mktime(motionLocalTime),timeArray[0])));
+	//snprintf(query,SQL_QUERY_SIZE,"gpio edge %d rising",(int)cfg_val[c_pir_pin]);
+//	system(query);
+//	memset(query,0,SQL_QUERY_SIZE);
+	//printf("Motion duration was : %.lf seconds (stop at %s)\n", difftime(timeArray[0],mktime(motionLocalTime)),asctime(localtime(&timeArray[0])));
+}
 
 void stop_all (void) {
    cam_stop_buffering ();
