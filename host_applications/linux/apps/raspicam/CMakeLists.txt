@@ -5,6 +5,7 @@ SET(COMPILE_DEFINITIONS -Werror)
 
 include_directories(${PROJECT_SOURCE_DIR}/host_applications/linux/libs/bcm_host/include)
 include_directories(${PROJECT_SOURCE_DIR}/host_applications/linux/apps/raspicam/)
+include_directories(/usr/include/mysql/)
 
 set (GL_SCENE_SOURCES
    gl_scenes/models.c
@@ -23,7 +24,7 @@ add_executable(raspistill ${COMMON_SOURCES} RaspiStill.c  RaspiTex.c RaspiTexUti
 add_executable(raspiyuv   ${COMMON_SOURCES} RaspiStillYUV.c)
 add_executable(raspivid   ${COMMON_SOURCES} RaspiVid.c)
 add_executable(raspividyuv  ${COMMON_SOURCES} RaspiVidYUV.c)
-add_executable(raspimjpeg RaspiMJPEG.c RaspiMCam.c RaspiMCmds.c RaspiMUtils.c)
+add_executable(raspimjpeg RaspiMJPEG.c RaspiMCam.c RaspiMCmds.c RaspiMUtils.c RaspiMSql.c RaspiMPir.c)
 
 set (MMAL_LIBS mmal_core mmal_util mmal_vc_client)
 
@@ -31,6 +32,6 @@ target_link_libraries(raspistill ${MMAL_LIBS} vcos bcm_host GLESv2 EGL m)
 target_link_libraries(raspiyuv   ${MMAL_LIBS} vcos bcm_host)
 target_link_libraries(raspivid   ${MMAL_LIBS} vcos bcm_host)
 target_link_libraries(raspividyuv   ${MMAL_LIBS} vcos bcm_host)
-target_link_libraries(raspimjpeg ${MMAL_LIBS} vcos bcm_host)
+target_link_libraries(raspimjpeg ${MMAL_LIBS} vcos bcm_host -lmysqlclient -lwiringPi)
 
 install(TARGETS raspistill raspiyuv raspivid raspividyuv raspimjpeg RUNTIME DESTINATION bin)
