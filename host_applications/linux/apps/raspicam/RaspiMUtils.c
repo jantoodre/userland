@@ -42,32 +42,54 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "RaspiMJPEG.h"
 
-void printLog(char *msg, ...) {
-   char *timestamp;
+unsigned int video_id[2] = {0};//0 with newest, 1 with previous
+char queryString[SQL_QUERY_SIZE];
+
+void printLog(logkey_type level, char *msg, ...) {
+   char *timestamp, *strLevel;
    va_list args;
    va_start(args, msg);
    int nofile = 0;
+   char tmp[SQL_QUERY_SIZE];
    FILE *fp;
-
-   if (cfg_stru[c_log_file] != 0) {
-      nofile = (access(cfg_stru[c_log_file], F_OK ) == -1 );
-      fp = fopen(cfg_stru[c_log_file], "a");
-   } else {
-      fp = stdout;
+	if(level >= cfg_val[c_notify_level]){
+		if (cfg_stru[c_log_file] != 0) {
+		  nofile = (access(cfg_stru[c_log_file], F_OK ) == -1 );
+		  fp = fopen(cfg_stru[c_log_file], "a");
+	    } else {
+		  fp = stdout;
+	    }
+	
+	   if (fp != NULL) {
+		  currTime = time(NULL);
+		  localTime = localtime (&currTime);
+		  makeFilename(&timestamp, "%Y-%M-%D %h:%m:%s");
+		  fprintf(fp, " %s",timestamp);
+		  vfprintf(fp, msg, args);
+		  if (cfg_stru[c_log_file] != 0) {
+			 fclose(fp);
+			 if (nofile) chmod(cfg_stru[c_log_file], 0777);
+		  }
+			if(cfg_stru[c_sql_enable]){//Log into database
+				vsnprintf(tmp,SQL_QUERY_SIZE,msg,args);
+				switch(level){//bugs with enum on SQL and C
+					case DEFAULT: asprintf(&strLevel,"Default"); break;
+					case INFO: asprintf(&strLevel,"Info"); break;
+					case SUCCESS: asprintf(&strLevel,"Success"); break;
+					case ALERT: asprintf(&strLevel,"Alert"); break;
+					case WARNING: asprintf(&strLevel,"Warning"); break;
+					case ERROR: asprintf(&strLevel,"Error"); break;
+					default: asprintf(&strLevel,"Default"); break;
+				}
+				snprintf(queryString,SQL_QUERY_SIZE,"INSERT INTO Notifications (class,type,message,date) VALUES ('3','%s','%s',CURRENT_TIMESTAMP)",strLevel,tmp);
+				sqlQuery(SQL_MOTION_LOG,NULL,queryString,0);				
+				memset(queryString,0,sizeof(queryString));
+				free(strLevel);
+			}
+		  if (timestamp != 0) free(timestamp);
+	   }
+	   va_end(args);
    }
-   if (fp != NULL) {
-      currTime = time(NULL);
-      localTime = localtime (&currTime);
-      makeFilename(&timestamp, "{%Y/%M/%D %h:%m:%s} ");
-      fprintf(fp, "%s",timestamp);
-      vfprintf(fp, msg, args);
-      if (cfg_stru[c_log_file] != 0) {
-         fclose(fp);
-         if (nofile) chmod(cfg_stru[c_log_file], 0777);
-      }
-      if (timestamp != 0) free(timestamp);
-   }
-   va_end(args);
 }
 
 void updateStatus() {
@@ -76,7 +98,7 @@ void updateStatus() {
    if(cfg_stru[c_status_file] != 0) {
       
       if (a_error) {
-         strcpy(status, "Error");
+         strcpy(status, "error");
       }
       else if (idle) {
          strcpy(status, "halted");
@@ -111,13 +133,19 @@ void updateStatus() {
          fprintf(status_file, status);
          fclose(status_file);
       }
+	  if(cfg_stru[c_sql_enable]){//if sql is enabled
+		//SQL query, update status for node
+	  }
    }
 }
 
 void error (const char *string, char fatal) {
-   printLog("Error: %s\n", string);
-   if (fatal == 0)
-      return;
+/* If fatal -> ERROR, else -> WARNING*/
+   if (fatal == 0){
+		printLog(WARNING,"Error: %s\n", string);
+        return;
+   }
+   printLog(ERROR,"Error: %s\n", string);
    a_error = 1;
    updateStatus();
    exit(1);
@@ -175,7 +203,6 @@ int findNextCount(char* folder, char* source) {
    free(search);
    return max_count + found;
 }
-
 
 char* trim(char*s) {
    char *end = s + strlen(s)-1;
