@@ -31,9 +31,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /**
  * \file RaspiMJPEG.h
  **/
-#define VERSION "5.1.3"
- 
-#include <stdio.h>
+#define VERSION "5.1.21"
+
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <memory.h>
@@ -43,6 +43,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <time.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <wiringPi.h>//
+#include <stdio.h>
+#include <RaspiMSql.h>//
+
+
 
 #include "bcm_host.h"
 #include "interface/vcos/vcos.h"
@@ -55,7 +60,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "interface/mmal/util/mmal_connection.h"
 
 #define IFRAME_BUFSIZE (60*1000)
-#define STD_INTRAPERIOD 60
 extern MMAL_STATUS_T status;
 extern MMAL_COMPONENT_T *camera, *jpegencoder, *jpegencoder2, *h264encoder, *resizer;
 extern MMAL_CONNECTION_T *con_cam_res, *con_res_jpeg, *con_cam_h264, *con_cam_jpeg;
@@ -65,18 +69,24 @@ extern char *cb_buff;
 extern char header_bytes[29];
 extern int cb_len, cb_wptr, cb_wrap, cb_data;
 extern int iframe_buff[IFRAME_BUFSIZE], iframe_buff_wpos, iframe_buff_rpos, header_wptr;
-extern unsigned int tl_cnt, mjpeg_cnt, image_cnt, image2_cnt, lapse_cnt, video_cnt;
+extern unsigned int tl_cnt, mjpeg_cnt, image_cnt, image2_cnt, lapse_cnt, video_cnt;//volatile
 extern char *filename_recording;
 extern unsigned char timelapse, running, autostart, idle, a_error, v_capturing, i_capturing, v_boxing;
 extern unsigned char buffering, buffering_toggle;
 
+extern time_t motionTime, timeArray[3];
+extern struct tm *motionLocalTime;
+extern int motionCounter, motionModifier;
+
+
 //hold config file data for both dflt and user config files and u long versions
-#define KEY_COUNT 61
+//#define KEY_COUNT 61//node#+notify+sql+pir(9)
+#define KEY_COUNT 65
 extern char *cfg_strd[KEY_COUNT + 1];
 extern char *cfg_stru[KEY_COUNT + 1];
 extern long int cfg_val[KEY_COUNT + 1];
 extern char *cfg_key[];
-
+ 
 typedef enum cfgkey_type
    {
    c_annotation,c_anno_background,
@@ -93,17 +103,24 @@ typedef enum cfgkey_type
    c_MP4Box,c_MP4Box_fps,
    c_image_width,c_image_height,c_image_quality,c_tl_interval,
    c_preview_path,c_image_path,c_lapse_path,c_video_path,c_status_file,c_control_file,c_media_path,c_subdir_char,
-   c_thumb_gen,c_autostart,c_motion_detection,c_user_config,c_log_file
+   c_thumb_gen,c_autostart,c_motion_detection,c_user_config,c_log_file,
+   c_notify_level,c_sql_enable,c_pir_motion,c_pir_pin//
    } cfgkey_type; 
 
+typedef enum//
+	{
+		DEFAULT, INFO, SUCCESS, ALERT, WARNING, ERROR
+	} logkey_type;
+
+   
 time_t currTime;
 struct tm *localTime;
 
 //Utils
-void printLog(char *msg, ...);
-void updateStatus();
-void error (const char *string, char fatal);
-int findNextCount(char* folder, char* source);
+void printLog(logkey_type level, char *msg, ...);//<- timestamp+ sql
+void updateStatus();//<-
+void error (const char *string, char fatal);//<-
+int findNextCount(char* folder, char* source);//change : if sql, count * where cam_id = node...
 char* trim(char*s);
 void makeFilename(char** filename, char *template);
 void createMediaPath(char* filename);
@@ -118,7 +135,6 @@ void start_video(unsigned char prepare_buf);
 void stop_video(unsigned char stop_buf);
 void cam_stop_buffering ();
 void cam_set_buffer ();
-void cam_set_ip ();
 void cam_set_em ();
 void cam_set_wb ();
 void cam_set_mm ();
@@ -128,13 +144,15 @@ void cam_set_flip ();
 void cam_set_roi ();
 void cam_set(int key);
 void start_all (int load_conf);
+void start_pir_motion(int pin);//<-
+void motion(void);
 void stop_all (void);
 
 //Cmds
 void process_cmd(char *readbuf, int length);
 
 //Main
-void set_counts();
+void set_counts();//change : if sql, count * where cam_id = node...
 int getKey(char *key);
 void addValue(int keyI, char *value, int both);
 void addUserValue(int key, char *value);
