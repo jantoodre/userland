@@ -75,7 +75,7 @@ void process_cmd(char *readbuf, int length) {
       temp = strtok(NULL, " ");
    }
    par0 = strtol(pars[0], NULL, 10);
-   
+    
    switch(pipe_cmd) {
       case ca:
          if(par0 == 1) {
@@ -92,13 +92,13 @@ void process_cmd(char *readbuf, int length) {
             timelapse = 1;
             lapse_cnt = 1;
             updateStatus();
-            printLog("Timelapse started\n");
+            printLog(INFO, "Timelapse started\n");
          }
          else {
             image2_cnt++;
             timelapse = 0;
             updateStatus();
-            printLog("Timelapse stopped\n");
+            printLog(INFO, "Timelapse stopped\n");
          }
          break;
       case px:
@@ -207,11 +207,11 @@ void process_cmd(char *readbuf, int length) {
          if (par0 == 0) {
             stop_all();
             idle = 1;
-            printLog("Stream halted\n");
+            printLog(ALERT, "Stream halted\n");
          } else {
             start_all(1);
             idle = 0;
-            printLog("Stream continued\n");
+            printLog(ALERT, "Stream continued\n");
          }
          updateStatus();
          break;
@@ -219,21 +219,21 @@ void process_cmd(char *readbuf, int length) {
          if(par0 == 0) {
             cfg_val[c_motion_detection] = 0;
             if(system("killall motion") == -1) error("Could not stop Motion", 1);
-            printLog("Motion detection stopped\n");
+            printLog(INFO, "Motion detection stopped\n");
          }
          else {
             cfg_val[c_motion_detection] = 1;
             if(system("motion") == -1) error("Could not start Motion", 1);
-            printLog("Motion detection started\n");
+            printLog(INFO, "Motion detection started\n");
          }
          updateStatus();
          break;
       case sc:
          set_counts();
-         printLog("Scan for highest count\n");
+         printLog(DEFAULT, "Scan for highest count\n");
          break;
       case rs:
-         printLog("Reset settings to defaults\n");
+         printLog(ALERT, "Reset settings to defaults\n");
          stop_all();
          read_config("/etc/raspimjpeg", 1);
          saveUserConfig(cfg_stru[c_user_config]);
@@ -243,7 +243,7 @@ void process_cmd(char *readbuf, int length) {
          key = c_video_buffer;
          break;
       default:
-         printLog("Unrecognised pipe command\n");
+         printLog(INFO, "Unrecognised pipe command\n");
          break;
    }
    
