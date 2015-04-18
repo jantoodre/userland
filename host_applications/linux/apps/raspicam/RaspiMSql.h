@@ -32,7 +32,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * \file RaspiMSql.h
  **/
  
-
+#ifndef _RASPIMSQL_H_
+#define _RASPIMSQL_H_
 
 #include <string.h>
 #include <stdlib.h>
@@ -76,7 +77,7 @@ typedef enum
 	extern char *sql_key[SQL_CFG_SIZE + 1];
 	extern char *sql_stru[SQL_CFG_SIZE + 1];
 	extern long int sql_val[SQL_CFG_SIZE + 1];
-	extern int total_motion_duration, nof_motions;
+	extern int total_motion_duration, nof_motions, video_length;
 
 //Not sure yet how to build the whole structure, since everyone might have their own
 //thoughts about how database tables  must look like
@@ -105,6 +106,7 @@ extern void addSqlValue(int keyI, char *value);
 extern void read_sql_config(char *cfilename);
 extern char *sqlTrim(char *s);
 
+#endif
 
 
 
