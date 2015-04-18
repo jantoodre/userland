@@ -31,7 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /**
  * \file RaspiMJPEG.h
  **/
-#define VERSION "5.1.21"
+
 
 #include <stdarg.h>
 #include <stdlib.h>
@@ -43,11 +43,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <time.h>
 #include <dirent.h>
 #include <unistd.h>
-#include <wiringPi.h>//
 #include <stdio.h>
-#include <RaspiMSql.h>//
+#include "RaspiMSql.h"//
+#include "RaspiMPir.h"
 
-
+#ifdef VERSION
+#undef VERSION
+#endif
+#define VERSION "5.1.21"
 
 #include "bcm_host.h"
 #include "interface/vcos/vcos.h"
@@ -58,6 +61,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "interface/mmal/util/mmal_util_params.h"
 #include "interface/mmal/util/mmal_default_components.h"
 #include "interface/mmal/util/mmal_connection.h"
+
+
 
 #define IFRAME_BUFSIZE (60*1000)
 extern MMAL_STATUS_T status;
@@ -73,11 +78,7 @@ extern unsigned int tl_cnt, mjpeg_cnt, image_cnt, image2_cnt, lapse_cnt, video_c
 extern char *filename_recording;
 extern unsigned char timelapse, running, autostart, idle, a_error, v_capturing, i_capturing, v_boxing;
 extern unsigned char buffering, buffering_toggle;
-
-extern time_t motionTime, timeArray[3];
-extern struct tm *motionLocalTime;
-extern int motionCounter, motionModifier;
-
+extern int video_start_timestamp;
 
 //hold config file data for both dflt and user config files and u long versions
 //#define KEY_COUNT 61//node#+notify+sql+pir(9)
@@ -144,8 +145,6 @@ void cam_set_flip ();
 void cam_set_roi ();
 void cam_set(int key);
 void start_all (int load_conf);
-void start_pir_motion(int pin);//<-
-void motion(void);
 void stop_all (void);
 
 //Cmds
