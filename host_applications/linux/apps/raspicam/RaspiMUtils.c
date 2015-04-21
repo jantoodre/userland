@@ -70,7 +70,7 @@ void printLog(logkey_type level, char *msg, ...) {
 			 fclose(fp);
 			 if (nofile) chmod(cfg_stru[c_log_file], 0777);
 		  }
-			if(cfg_stru[c_sql_enable]){//Log into database
+			if(cfg_val[c_sql_enable]){//Log into database
 				vsnprintf(tmp,SQL_QUERY_SIZE,msg,args);
 				switch(level){//bugs with enum on SQL and C
 					case DEFAULT: asprintf(&strLevel,"Default"); break;
@@ -121,6 +121,9 @@ void updateStatus() {
          else
             strcpy(status, "md_boxing");
       }
+	  else if (!running){
+		strcpy(status, "stopped");
+	  }
       else {
          if(!cfg_val[c_motion_detection]) 
             strcpy(status, "ready");
@@ -133,8 +136,8 @@ void updateStatus() {
          fprintf(status_file, status);
          fclose(status_file);
       }
-	  if(cfg_stru[c_sql_enable]){//if sql is enabled
-		//SQL query, update status for node
+	  if(cfg_val[c_sql_enable]){
+		sqlQuery(SQL_UPDATE_CAMERA_STATUS,NULL,status,0);
 	  }
    }
 }
