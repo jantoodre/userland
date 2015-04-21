@@ -42,6 +42,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <mysql.h>//
 #include <stdbool.h>
 #include <ctype.h>
+#include <time.h>
+
+#ifndef _RASPIMJPEG_H_
+#include "RaspiMJPEG.h"
+#endif
 
 
 /*Query ID
@@ -55,8 +60,10 @@ typedef enum
 		SQL_MOTION_GET_MOTIONS,
 		SQL_MOTION_GET_TOTAL_DURATION,
 		SQL_UPDATE_MOTION_DATA,
+		SQL_UPDATE_CAMERA_STATUS,
 		SQL_READ_CONFIG,
 		SQL_SAVE_CONFIG,
+		SQL_PURGE,
 		SQL_CUSTOM,
 		SQL_CLEAN		
 	} QUERY_ID;
@@ -65,19 +72,20 @@ typedef enum
 	{
 		c_node_number,
 		c_sql_host,c_sql_user,c_sql_psw,c_sql_db,
-		c_sql_table_motion,c_sql_table_video,c_sql_table_notifications
+		c_sql_table_motion,c_sql_table_video,c_sql_table_notifications,
+		c_purge_mode,c_purge_level,c_video_path_sql,c_image_path_sql
 	}sqlkey_type;
 	
 	#define SQL_QUERY_SIZE		512
-	#define SQL_CFG_SIZE		7
+	#define SQL_CFG_SIZE		11
 	
-	extern MYSQL *con;
-	extern char query[SQL_QUERY_SIZE];
-	extern unsigned int video_id[2];
-	extern char *sql_key[SQL_CFG_SIZE + 1];
-	extern char *sql_stru[SQL_CFG_SIZE + 1];
-	extern long int sql_val[SQL_CFG_SIZE + 1];
-	extern int total_motion_duration, nof_motions, video_length;
+extern MYSQL *con;
+extern char query[SQL_QUERY_SIZE];
+extern unsigned int video_id[2];
+extern char *sql_key[SQL_CFG_SIZE + 1];
+extern char *sql_stru[SQL_CFG_SIZE + 1];
+extern long int sql_val[SQL_CFG_SIZE + 1];
+extern int total_motion_duration, nof_motions, video_length;
 
 //Not sure yet how to build the whole structure, since everyone might have their own
 //thoughts about how database tables  must look like
@@ -101,6 +109,7 @@ returns result if necessary
 Sends string/custom query(without return)
 size of buffer(string)*/
 extern bool sqlQuery(QUERY_ID id, void *queryResult, char *str, size_t size);
+extern bool purge(int timestamp, int key);
 extern int getSqlKey(char *key);
 extern void addSqlValue(int keyI, char *value);
 extern void read_sql_config(char *cfilename);

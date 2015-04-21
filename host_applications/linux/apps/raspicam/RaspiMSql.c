@@ -45,11 +45,14 @@ MYSQL *con;
 char query[SQL_QUERY_SIZE];
 unsigned int video_id[2];
 int total_motion_duration = 0, nof_motions = 0, video_length = 0;
+int purgeAge = 0, unix_timestamp_now = 0,purge_level = 0;
+time_t currentTime;
 
 char *sql_key[SQL_CFG_SIZE + 1] ={
    "node_number",
    "sql_host","sql_user","sql_psw","sql_db",
-   "table_motion","table_video","table_notifications"
+   "table_motion","table_video","table_notifications",
+   "purge_mode","purge_level","video_path","image_path"
 };
 char *sql_stru[SQL_CFG_SIZE + 1];
 long int sql_val[SQL_CFG_SIZE + 1];
@@ -110,7 +113,7 @@ extern bool sqlQuery(QUERY_ID id, void *queryResult, char *str, size_t size){
 			return 1;
 		case SQL_MOTION_LOG:
 			if(str == NULL){
-				printf("Error: Could not add motion");
+				printLog(ERROR, "Error: Could not add motion");
 				exit(1);//error("Empty notification string!\n",1);
 			}
 			if(mysql_query(con, str)){
@@ -165,6 +168,38 @@ extern bool sqlQuery(QUERY_ID id, void *queryResult, char *str, size_t size){
 			}
 			memset(query,0,SQL_QUERY_SIZE);
 			return 1;
+		case SQL_UPDATE_CAMERA_STATUS:
+			snprintf(query, SQL_QUERY_SIZE, "UPDATE Camera SET stream_status='%s' WHERE id='%d'",str,(int)sql_val[c_node_number]);
+			if(mysql_query(con, query)){
+				//error("Query to database failed(Unable to update video id for new video)",1);
+				memset(query,0,SQL_QUERY_SIZE);
+				exit(1);
+			}
+			memset(query,0,SQL_QUERY_SIZE);
+			return 1;
+		case SQL_PURGE:
+			purgeAge = atoi(str);
+			if(purgeAge){
+					//SELECT * FROM Videos WHERE date >= FROM_UNIXTIME(unixtimestamp-time)
+				time(&currentTime);
+				unix_timestamp_now = (int)mktime(localtime(&currentTime));
+				switch(sql_val[c_purge_mode]){
+					case 0: break;//in seconds
+					case 1: purgeAge = 60 * purgeAge; break;//in minutes
+					case 2: purgeAge = 3600 * purgeAge; break;//in hours
+					case 3: purgeAge = 86400 * purgeAge; break;//in days
+					default: printLog(WARNING, "Invalid purge mode/mode not set!\n"); return 0;				
+				}
+				switch(sql_val[c_purge_level]){//Maybe some day do this with masking
+					case 0: purge_level = c_video_path_sql; break;
+					case 1: purge_level = c_image_path_sql; break;
+					default: printLog(WARNING, "Invalid purge level/level not set!\n"); return 0;	
+				}
+				if(purge(unix_timestamp_now-purgeAge,purge_level) == 0){
+					printLog(ERROR,"Purge failed!\n");
+				}
+			}
+			break;
 		case SQL_READ_CONFIG: //To be implemented
 			break;
 		case SQL_SAVE_CONFIG: //To be implemented
@@ -181,6 +216,62 @@ extern bool sqlQuery(QUERY_ID id, void *queryResult, char *str, size_t size){
 }
 
 //function to read sql cfg
+bool purge(int timestamp, int key){
+	if(timestamp <= 0) return 0;
+	MYSQL_RES *presult;
+	MYSQL_ROW prow;
+	int counter = 0, elnum = 0;
+	char *tableName;
+	switch(key){//later on replace this.. read from cfg
+		case c_video_path_sql: asprintf(&tableName,"Videos"); break;
+		case c_image_path_sql: asprintf(&tableName,"Images"); break;
+		default: break;
+	}
+	snprintf(query,SQL_QUERY_SIZE,"SELECT COUNT(*) FROM %s WHERE deleted='0' AND date <= FROM_UNIXTIME(%d)",tableName,timestamp);
+	if(mysql_query(con, query)){
+		//error("Query to database failed(Unable to update video id for new video)",1);
+		memset(query,0,SQL_QUERY_SIZE);
+		printLog(WARNING, "Purging failed!(Nothing to purge)\n");
+		return 0;
+	}
+	presult = mysql_store_result(con);
+	prow = mysql_fetch_row(presult);
+	counter = atoi(prow[0]);//get number of results	
+	snprintf(query,SQL_QUERY_SIZE,"SELECT filename FROM %s WHERE deleted='0' AND date <= FROM_UNIXTIME(%d)",tableName,timestamp);
+	if(mysql_query(con, query)){
+		//error("Query to database failed(Unable to update video id for new video)",1);
+		memset(query,0,SQL_QUERY_SIZE);
+		printLog(ERROR,"Purging failed!\n");
+		exit(1);
+	}else{
+		presult = mysql_store_result(con);
+		//prow = mysql_fetch_row(presult);
+		char videoArray[counter][64];
+		for(elnum = 0; elnum < counter && (prow = mysql_fetch_row(presult)); elnum++){//populate table with filenames
+			//prow = mysql_fetch_row(presult);
+				snprintf(videoArray[elnum],64,"%s",prow[0]);
+		}
+		//update database and deleted
+		for(elnum = 0; elnum < counter; elnum++){//populate table with filenames
+			printf("%s\n",videoArray[elnum]);//for testing
+			snprintf(query,SQL_QUERY_SIZE,"UPDATE %s SET deleted='1' WHERE filename='%s'",tableName,videoArray[elnum]);
+			if(mysql_query(con, query)){
+				memset(query,0,SQL_QUERY_SIZE);
+				return 0;
+			}
+			memset(query,0,SQL_QUERY_SIZE);
+			snprintf(query,SQL_QUERY_SIZE, "sudo rm %s%s",sql_stru[key],videoArray[elnum]);
+			system(query);
+			memset(query,0,SQL_QUERY_SIZE);
+		}
+	}	
+	mysql_free_result(presult);
+	snprintf(query,SQL_QUERY_SIZE,"Purge successful! Deleted %d items from %s\n", counter, sql_stru[key]);
+	printLog(SUCCESS, query);
+	memset(query,0,SQL_QUERY_SIZE);
+	free(tableName);
+	return 1;
+}
 
 int getSqlKey(char *key) {
    int i;
