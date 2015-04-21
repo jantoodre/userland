@@ -68,6 +68,7 @@ unsigned char buffering=0, buffering_toggle=0;
 char *cfg_strd[KEY_COUNT + 1];
 char *cfg_stru[KEY_COUNT + 1];
 long int cfg_val[KEY_COUNT + 1];
+//int video_duration = 0;
 
 char *cfg_key[] ={
    "annotation","anno_background",
@@ -85,7 +86,7 @@ char *cfg_key[] ={
    "image_width","image_height","image_quality","tl_interval",
    "preview_path","image_path","lapse_path","video_path","status_file","control_file","media_path","subdir_char",
    "thumb_gen","autostart","motion_detection","user_config","log_file",
-   "notify_level","sql_enable","pir_motion","pir_pin"
+   "notify_level","sql_enable","pir_motion","pir_pin"//,"video_duration"
 };
 
 char *log_key[] ={//
@@ -260,7 +261,7 @@ int main (int argc, char* argv[]) {
       length = read(fd, readbuf, 60);
       close(fd);
    } while (length != 0); 
-  
+	updateStatus();
    // Main forever loop
    while(running) {
       if(cfg_stru[c_control_file] != 0) {
@@ -293,6 +294,7 @@ int main (int argc, char* argv[]) {
    // tidy up
    //
    if(!idle) stop_all();
+   updateStatus();
    sqlQuery(SQL_CLEAN,NULL,NULL,0);
    return 0;
 }

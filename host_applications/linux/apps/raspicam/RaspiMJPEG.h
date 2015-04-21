@@ -31,7 +31,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /**
  * \file RaspiMJPEG.h
  **/
-
+#ifndef _RASPIMJPEG_H_
+#define _RASPIMJPEG_H_
 
 #include <stdarg.h>
 #include <stdlib.h>
@@ -78,10 +79,10 @@ extern unsigned int tl_cnt, mjpeg_cnt, image_cnt, image2_cnt, lapse_cnt, video_c
 extern char *filename_recording;
 extern unsigned char timelapse, running, autostart, idle, a_error, v_capturing, i_capturing, v_boxing;
 extern unsigned char buffering, buffering_toggle;
-extern int video_start_timestamp;
+extern int video_start_timestamp;//, video_duration;
 
 //hold config file data for both dflt and user config files and u long versions
-//#define KEY_COUNT 61//node#+notify+sql+pir(9)
+//#define KEY_COUNT 61//node#+notify+sql+pir(9)+vd
 #define KEY_COUNT 65
 extern char *cfg_strd[KEY_COUNT + 1];
 extern char *cfg_stru[KEY_COUNT + 1];
@@ -105,7 +106,7 @@ typedef enum cfgkey_type
    c_image_width,c_image_height,c_image_quality,c_tl_interval,
    c_preview_path,c_image_path,c_lapse_path,c_video_path,c_status_file,c_control_file,c_media_path,c_subdir_char,
    c_thumb_gen,c_autostart,c_motion_detection,c_user_config,c_log_file,
-   c_notify_level,c_sql_enable,c_pir_motion,c_pir_pin//
+   c_notify_level,c_sql_enable,c_pir_motion,c_pir_pin//,c_video_duration
    } cfgkey_type; 
 
 typedef enum//
@@ -158,3 +159,4 @@ void addUserValue(int key, char *value);
 void saveUserConfig(char *cfilename);
 void read_config(char *cfilename, int type);
 
+#endif
