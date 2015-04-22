@@ -75,15 +75,15 @@ extern char *cb_buff;
 extern char header_bytes[29];
 extern int cb_len, cb_wptr, cb_wrap, cb_data;
 extern int iframe_buff[IFRAME_BUFSIZE], iframe_buff_wpos, iframe_buff_rpos, header_wptr;
-extern unsigned int tl_cnt, mjpeg_cnt, image_cnt, image2_cnt, lapse_cnt, video_cnt;//volatile
+extern unsigned int tl_cnt, mjpeg_cnt, image_cnt, image2_cnt, lapse_cnt, video_cnt;
 extern char *filename_recording;
 extern unsigned char timelapse, running, autostart, idle, a_error, v_capturing, i_capturing, v_boxing;
 extern unsigned char buffering, buffering_toggle;
 extern int video_start_timestamp;//, video_duration;
 
 //hold config file data for both dflt and user config files and u long versions
-//#define KEY_COUNT 61//node#+notify+sql+pir(9)+vd
-#define KEY_COUNT 65
+//#define KEY_COUNT 61//node#+notify+sql+pir(9)+vd+always record
+#define KEY_COUNT 66
 extern char *cfg_strd[KEY_COUNT + 1];
 extern char *cfg_stru[KEY_COUNT + 1];
 extern long int cfg_val[KEY_COUNT + 1];
@@ -106,7 +106,7 @@ typedef enum cfgkey_type
    c_image_width,c_image_height,c_image_quality,c_tl_interval,
    c_preview_path,c_image_path,c_lapse_path,c_video_path,c_status_file,c_control_file,c_media_path,c_subdir_char,
    c_thumb_gen,c_autostart,c_motion_detection,c_user_config,c_log_file,
-   c_notify_level,c_sql_enable,c_pir_motion,c_pir_pin//,c_video_duration
+   c_always_record,c_notify_level,c_sql_enable,c_pir_motion,c_pir_pin//,c_video_duration
    } cfgkey_type; 
 
 typedef enum//
