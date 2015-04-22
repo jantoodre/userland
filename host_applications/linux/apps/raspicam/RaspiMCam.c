@@ -326,7 +326,7 @@ void thumb_create(char *from_filename, char source) {
 
 void capt_img (void) {
 
-   char *filename_temp;
+   char *filename_temp, *filename;
 
    currTime = time(NULL);
    localTime = localtime (&currTime);
@@ -340,8 +340,16 @@ void capt_img (void) {
       makeFilename(&filename_temp, cfg_stru[c_image_path]);
       thumb_create(filename_temp, 'i');
    }
+   	  /*get only filename*/
+	filename = strrchr(filename_temp, '/');
+	
+	
    createMediaPath(filename_temp);
    jpegoutput2_file = fopen(filename_temp, "wb");
+   /*Add new image entry to database*/
+   if(cfg_val[c_sql_enable]){
+		sqlQuery(SQL_IMAGE_NEW_IMAGE,NULL,++filename,0);
+	}
    free(filename_temp);
    if(jpegoutput2_file != NULL){ 
       status = mmal_port_parameter_set_boolean(camera->output[2], MMAL_PARAMETER_CAPTURE, 1);
@@ -565,7 +573,7 @@ void cam_set_em () {
    else if(strcmp(cfg_stru[c_exposure_mode], "fixedfps") == 0) mode = MMAL_PARAM_EXPOSUREMODE_FIXEDFPS;
    else if(strcmp(cfg_stru[c_exposure_mode], "antishake") == 0) mode = MMAL_PARAM_EXPOSUREMODE_ANTISHAKE;
    else if(strcmp(cfg_stru[c_exposure_mode], "fireworks") == 0) mode = MMAL_PARAM_EXPOSUREMODE_FIREWORKS;
-   else {error("Invalid exposure mode", 1); return;}
+   else {error("Invalid exposure mode", 0);return;}
    MMAL_PARAMETER_EXPOSUREMODE_T exp_mode = {{MMAL_PARAMETER_EXPOSURE_MODE,sizeof(exp_mode)}, mode};
    status = mmal_port_parameter_set(camera->control, &exp_mode.hdr);
    if(status != MMAL_SUCCESS) error("Could not set exposure mode", 0);
