@@ -44,8 +44,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "RaspiMJPEG.h"
 
 void process_cmd(char *readbuf, int length) {
-   typedef enum pipe_cmd_type{ca,im,tl,px,bo,tv,an,as,at,ac,ab,sh,co,br,sa,is,vs,rl,ec,em,wb,mm,ie,ce,ro,fl,ri,ss,qu,bl,ru,md,sc,rs,bu,pv} pipe_cmd_type;
-   char pipe_cmds[] = "ca,im,tl,px,bo,tv,an,as,at,ac,ab,sh,co,br,sa,is,vs,rl,ec,em,wb,mm,ie,ce,ro,fl,ri,ss,qu,bl,ru,md,sc,rs,bu,pv";
+   typedef enum pipe_cmd_type{ca,im,tl,px,bo,tv,an,as,at,ac,ab,sh,co,br,sa,is,vs,rl,ec,em,wb,mm,ie,ce,ro,fl,ri,ss,qu,bl,ru,md,sc,rs,bu,pv,nv} pipe_cmd_type;
+   char pipe_cmds[] = "ca,im,tl,px,bo,tv,an,as,at,ac,ab,sh,co,br,sa,is,vs,rl,ec,em,wb,mm,ie,ce,ro,fl,ri,ss,qu,bl,ru,md,sc,rs,bu,pv,nv";
    pipe_cmd_type pipe_cmd;
    int i;
    char pars[128][10];
@@ -251,12 +251,16 @@ void process_cmd(char *readbuf, int length) {
 			}
 		}
 		break;
-	  /*case vd://
-		 video_duration = atoi(pars[0]);
-		 cfg_val[c_video_duration] = video_duration;
-		 stop_video(0);
-		 start_video(0);
-		break;*/
+	  case nv://
+		 //video_duration = atoi(pars[0]);
+		 //cfg_val[c_video_duration] = video_duration;
+		 if(v_capturing == 0){
+			start_video(0);
+		}else{
+			stop_video(0);
+			start_video(0);
+		 }
+		break;
       default:
          printLog(INFO, "Unrecognised pipe command\n");
          break;
