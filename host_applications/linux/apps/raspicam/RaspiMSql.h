@@ -49,11 +49,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 
-/*Query ID
-Classes: Video, Motion,Log,Update,Custom*/
+/*Query ID*/
 typedef enum
 	{
 		SQL_INIT,
+		SQL_IMAGE_NEW_IMAGE,
 		SQL_VIDEO_NEW_VIDEO,
 		SQL_VIDEO_GET_NEW_ID,
 		SQL_MOTION_LOG,

@@ -84,7 +84,16 @@ extern bool sqlQuery(QUERY_ID id, void *queryResult, char *str, size_t size){
 				mysql_free_result(result);
 			}
 			memset(query,0,SQL_QUERY_SIZE);
-			return 1;				
+			return 1;
+		case SQL_IMAGE_NEW_IMAGE:
+			snprintf(query, SQL_QUERY_SIZE, "INSERT INTO Images (cam_id, filename) VALUES ('%d', '%s')", (int)sql_val[c_node_number], str);
+			if (mysql_query(con, query)){
+				//error("Could not add new entry for videos",1);
+				memset(query,0,SQL_QUERY_SIZE);
+				exit(1);
+			}
+			memset(query, 0, SQL_QUERY_SIZE);
+			return 1;
 		case SQL_VIDEO_NEW_VIDEO: 
 			snprintf(query, SQL_QUERY_SIZE, "INSERT INTO Videos (cam_id, filename) VALUES ('%d', '%s')", (int)sql_val[c_node_number], str);
 			if (mysql_query(con, query)){
@@ -190,6 +199,7 @@ extern bool sqlQuery(QUERY_ID id, void *queryResult, char *str, size_t size){
 					case 3: purgeAge = 86400 * purgeAge; break;//in days
 					default: printLog(WARNING, "Invalid purge mode/mode not set!\n"); return 0;				
 				}
+				printf("Purge mode :%d, purgeAge: %d\n",(int)sql_val[c_purge_mode],purgeAge);
 				switch(sql_val[c_purge_level]){//Maybe some day do this with masking
 					case 0: purge_level = c_video_path_sql; break;
 					case 1: purge_level = c_image_path_sql; break;
