@@ -32,7 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * \file RaspiMSql.c
  * Handling SQL queries
  *
- * \date 18th Aprl 2015
+ * \date 18th April 2015
  * \Author: Robert Tidey / Jan Toodre
  *
  *
@@ -80,7 +80,6 @@ extern bool sqlQuery(QUERY_ID id, void *queryResult, char *str, size_t size){
 				result = mysql_store_result(con);
 				row = mysql_fetch_row(result);
 				video_id[0] = atoi(row[0]);
-				printf("Video ID: %d\n",video_id[0]);
 				mysql_free_result(result);
 			}
 			memset(query,0,SQL_QUERY_SIZE);
@@ -189,24 +188,22 @@ extern bool sqlQuery(QUERY_ID id, void *queryResult, char *str, size_t size){
 		case SQL_PURGE:
 			purgeAge = atoi(str);
 			if(purgeAge){
-					//SELECT * FROM Videos WHERE date >= FROM_UNIXTIME(unixtimestamp-time)
 				time(&currentTime);
 				unix_timestamp_now = (int)mktime(localtime(&currentTime));
 				switch(sql_val[c_purge_mode]){
-					case 0: break;//in seconds
+					//case 0: break;//in seconds | disabled not sure if anyone would use seconds for this..
 					case 1: purgeAge = 60 * purgeAge; break;//in minutes
 					case 2: purgeAge = 3600 * purgeAge; break;//in hours
 					case 3: purgeAge = 86400 * purgeAge; break;//in days
 					default: printLog(WARNING, "Invalid purge mode/mode not set!\n"); return 0;				
 				}
-				printf("Purge mode :%d, purgeAge: %d\n",(int)sql_val[c_purge_mode],purgeAge);
 				switch(sql_val[c_purge_level]){//Maybe some day do this with masking
 					case 0: purge_level = c_video_path_sql; break;
 					case 1: purge_level = c_image_path_sql; break;
 					default: printLog(WARNING, "Invalid purge level/level not set!\n"); return 0;	
 				}
 				if(purge(unix_timestamp_now-purgeAge,purge_level) == 0){
-					printLog(ERROR,"Purge failed!\n");
+					printLog(WARNING,"Purge failed!\n");
 				}
 			}
 			break;
@@ -241,7 +238,7 @@ bool purge(int timestamp, int key){
 	if(mysql_query(con, query)){
 		//error("Query to database failed(Unable to update video id for new video)",1);
 		memset(query,0,SQL_QUERY_SIZE);
-		printLog(WARNING, "Purging failed!(Nothing to purge)\n");
+		printLog(WARNING, "Purging failed!(Query failed)\n");
 		return 0;
 	}
 	presult = mysql_store_result(con);
@@ -251,7 +248,7 @@ bool purge(int timestamp, int key){
 	if(mysql_query(con, query)){
 		//error("Query to database failed(Unable to update video id for new video)",1);
 		memset(query,0,SQL_QUERY_SIZE);
-		printLog(ERROR,"Purging failed!\n");
+		printLog(ERROR,"Purging failed!(Query failed)\n");
 		exit(1);
 	}else{
 		presult = mysql_store_result(con);
@@ -276,8 +273,11 @@ bool purge(int timestamp, int key){
 		}
 	}	
 	mysql_free_result(presult);
-	snprintf(query,SQL_QUERY_SIZE,"Purge successful! Deleted %d items from %s\n", counter, sql_stru[key]);
-	printLog(SUCCESS, query);
+	if(counter)
+		snprintf(query,SQL_QUERY_SIZE,"Purge successful! Deleted %d items from %s\n", counter, sql_stru[key]);
+	else
+		snprintf(query,SQL_QUERY_SIZE,"No files to purge from %s!\n", sql_stru[key]);
+	printLog(INFO, query);
 	memset(query,0,SQL_QUERY_SIZE);
 	free(tableName);
 	return 1;
