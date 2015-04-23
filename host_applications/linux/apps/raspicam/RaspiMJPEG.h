@@ -82,8 +82,8 @@ extern unsigned char buffering, buffering_toggle;
 extern int video_start_timestamp;//, video_duration;
 
 //hold config file data for both dflt and user config files and u long versions
-//#define KEY_COUNT 61//node#+notify+sql+pir(9)+vd+always record
-#define KEY_COUNT 66
+//#define KEY_COUNT 61//node#+notify+sql+pir(9)+vd+always record+daemon
+#define KEY_COUNT 67
 extern char *cfg_strd[KEY_COUNT + 1];
 extern char *cfg_stru[KEY_COUNT + 1];
 extern long int cfg_val[KEY_COUNT + 1];
@@ -106,7 +106,7 @@ typedef enum cfgkey_type
    c_image_width,c_image_height,c_image_quality,c_tl_interval,
    c_preview_path,c_image_path,c_lapse_path,c_video_path,c_status_file,c_control_file,c_media_path,c_subdir_char,
    c_thumb_gen,c_autostart,c_motion_detection,c_user_config,c_log_file,
-   c_always_record,c_notify_level,c_sql_enable,c_pir_motion,c_pir_pin//,c_video_duration
+   c_daemon_enable,c_always_record,c_notify_level,c_sql_enable,c_pir_motion,c_pir_pin//,c_video_duration
    } cfgkey_type; 
 
 typedef enum//
@@ -127,6 +127,7 @@ char* trim(char*s);
 void makeFilename(char** filename, char *template);
 void createMediaPath(char* filename);
 int copy_file(char *from_filename, char *to_filename);
+void startDaemon(char *raspiMJPEGParam);
 
 //Camera
 void cam_set_annotationV3 (char *filename_temp, MMAL_BOOL_T enable);

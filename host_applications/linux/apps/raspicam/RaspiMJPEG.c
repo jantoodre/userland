@@ -86,7 +86,7 @@ char *cfg_key[] ={
    "image_width","image_height","image_quality","tl_interval",
    "preview_path","image_path","lapse_path","video_path","status_file","control_file","media_path","subdir_char",
    "thumb_gen","autostart","motion_detection","user_config","log_file",
-   "always_record","notify_level","sql_enable","pir_motion","pir_pin"//,"video_duration"
+   "daemon_enable","always_record","notify_level","sql_enable","pir_motion","pir_pin"//,"video_duration"
 };
 
 char *log_key[] ={//
@@ -219,7 +219,7 @@ int main (int argc, char* argv[]) {
    if (cfg_stru[c_user_config] != 0)
       read_config(cfg_stru[c_user_config], 0);
 
-   //printLog(DEFAULT, "RaspiMJPEG Version %s\n", VERSION);
+   printLog(DEFAULT, "RaspiMJPEG Version %s\n", VERSION);
    
    if(cfg_val[c_autostart]) start_all(0);
    if(cfg_val[c_motion_detection]) {
@@ -268,6 +268,12 @@ int main (int argc, char* argv[]) {
 	}else{
 		setVideoID(0);//0 for just motion detection
 	}
+	
+	//Daemon start
+	if(cfg_val[c_daemon_enable]){
+		startDaemon(0);//No parameters for raspimjpeg
+	}
+	
    // Main forever loop
    while(running) {
       if(cfg_stru[c_control_file] != 0) {

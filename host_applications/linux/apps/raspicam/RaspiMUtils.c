@@ -319,3 +319,22 @@ int copy_file(char *from_filename, char *to_filename)
    return  0;
 }
 
+void startDaemon(char *raspiMJPEGParam){
+	FILE *daemonPath = fopen("/tmp/raspimjpegd","r");
+	if(daemonPath != NULL){//daemon is not running if there is no such file
+	int daemonStatus = 0;
+		fscanf(daemonPath, "%d", &daemonStatus);
+		if(daemonStatus){//if there is a number here, daemon is running
+			fclose(daemonPath);
+			return;
+		}
+	}//If it is null or inside is 0 then good to start daemon
+	char *sysCall;
+	if(raspiMJPEGParam)
+		asprintf(&sysCall,"sudo raspimjpegd \"raspimjpeg %s\"",raspiMJPEGParam);//got to install raspimjpegd to /usr/bin
+	else
+		asprintf(&sysCall,"sudo raspimjpegd \"raspimjpeg\"",raspiMJPEGParam);
+	system(sysCall);
+	fclose(daemonPath);
+	free(sysCall);
+}
