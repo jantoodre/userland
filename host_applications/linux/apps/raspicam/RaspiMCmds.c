@@ -244,7 +244,7 @@ void process_cmd(char *readbuf, int length) {
          break;
 	case pv:
 		if(par0){
-			printLog(ALERT, "Purging files\n");
+			printLog(INFO, "Purging files..\n");
 			if(cfg_val[c_sql_enable]){
 				sprintf(query,"%d",(int)par0);
 				sqlQuery(SQL_PURGE,NULL,query,0);
@@ -262,7 +262,7 @@ void process_cmd(char *readbuf, int length) {
 		 }
 		break;
       default:
-         printLog(INFO, "Unrecognised pipe command\n");
+         printLog(ALERT, "Unrecognised pipe command\n");
          break;
    }
    

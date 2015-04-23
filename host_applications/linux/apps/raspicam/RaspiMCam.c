@@ -354,7 +354,7 @@ void capt_img (void) {
    if(jpegoutput2_file != NULL){ 
       status = mmal_port_parameter_set_boolean(camera->output[2], MMAL_PARAMETER_CAPTURE, 1);
       if(status == MMAL_SUCCESS) {
-         printLog(INFO, "Capturing image\n");
+         printLog(DEFAULT, "Capturing image\n");
          i_capturing = 1;
          updateStatus();
       } else {
@@ -438,7 +438,7 @@ void start_video(unsigned char prepare_buf) {
       if(status != MMAL_SUCCESS) {error("Could not start capture", 0); return;}
     }
     if(!prepare_buf) {
-      printLog(INFO, "Capturing started\n");
+      printLog(DEFAULT, "Capturing started\n");
       v_capturing = 1;
     }
     updateStatus();
@@ -484,7 +484,7 @@ void stop_video(unsigned char stop_buf) {
       }
       fclose(h264output_file);
       h264output_file = NULL;
-      printLog(INFO, "Capturing stopped\n");
+      printLog(DEFAULT, "Capturing stopped\n");
       v_capturing = 0;
       if(buffering) {
         cam_set_buffer();
@@ -524,8 +524,8 @@ void stop_video(unsigned char stop_buf) {
 		sprintf(query,"%d",(((int)mktime(localtime(&currTime)))-video_start_timestamp));
 		sqlQuery(SQL_UPDATE_MOTION_DATA,NULL,query,0);
 		memset(query,0,SQL_QUERY_SIZE);
+		setVideoID(0);//Will go under motion detection, not video
 	}
-	
   }
 }
 
