@@ -31,7 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /**
  * \file raspimjpegd.c
  * \date 23rd April 2015
- * \Author: Silvan Melchior / Robert Tidey
+ * \Author: Jan Toodre
  *
  * Description
  * This is raspberrymjpeg daemon to keep programm running 24/7.
