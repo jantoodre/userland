@@ -81,7 +81,7 @@ void printLog(logkey_type level, char *msg, ...) {
 					case ERROR: asprintf(&strLevel,"Error"); break;
 					default: asprintf(&strLevel,"Default"); break;
 				}
-				snprintf(queryString,SQL_QUERY_SIZE,"INSERT INTO Notifications (class,type,message,date) VALUES ('3','%s','%s',CURRENT_TIMESTAMP)",strLevel,tmp);
+				snprintf(queryString,SQL_QUERY_SIZE,"INSERT INTO `Notifications` (`from` ,`class` ,`type`,`message`,`date`) VALUES ('2','3','%s','%s',CURRENT_TIMESTAMP)",strLevel,tmp);//ADD FROM HERE
 				sqlQuery(SQL_MOTION_LOG,NULL,queryString,0);				
 				memset(queryString,0,sizeof(queryString));
 				free(strLevel);
