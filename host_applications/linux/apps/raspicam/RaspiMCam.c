@@ -286,41 +286,14 @@ void cam_set_annotation() {
 
 void thumb_create(char *from_filename, char source) {
    //make a thumbnail with source+count.th.jpg appended
-   char *filename = 0;
    char *thumb_name = 0;
-   char *f = 0, *s = 0, *t = 0;
-   unsigned int xcount=0;
-   
    //Check if thumbnail needed for this type of source
    if (cfg_stru[c_thumb_gen] != 0 && strchr(cfg_stru[c_thumb_gen], source) != NULL) {
-      if (source == 'v')
-         xcount = video_cnt;
-      else if (source == 'i')
-         xcount = image2_cnt;
-      else if (source == 't')
-         xcount = image2_cnt;
-      
-      asprintf(&filename, "%s", from_filename);
-      if (strncmp(filename, cfg_stru[c_media_path], strlen(cfg_stru[c_media_path])) == 0) {
-         f = filename + strlen(cfg_stru[c_media_path]) + 1;
-         //remove .h264 if present
-         if (strcmp((f + strlen(f) - 5), ".h264") == 0) {
-            *(f + strlen(f) - 5) = 0; 
-         }
-         s = f;
-         do {
-            t = strchr(s, '/');
-            if (t != NULL) {
-               *t = *cfg_stru[c_subdir_char];
-               s = t + 1;
-            }
-         } while (t != NULL);
          //generate thumbnail name
-         asprintf(&thumb_name, "%s/%s.%c%04d.th.jpg", cfg_stru[c_media_path], f, source, xcount);
+         asprintf(&thumb_name, "%s.th", from_filename);
          copy_file(cfg_stru[c_preview_path], thumb_name);
          free(thumb_name);
-      }
-      free(filename);
+      
    }
 }
 
@@ -1017,6 +990,7 @@ void start_all (int load_conf) {
 }
 
 void stop_all (void) {
+   stop_video(0);
    cam_stop_buffering ();
    mmal_port_disable(jpegencoder->output[0]);
    mmal_connection_destroy(con_cam_res);
