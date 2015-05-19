@@ -29,7 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * \file RaspiMPir.c
  * Motion detection
  *
- * \date 18th Aprl 2015
+ * \date 18th April 2015
  * \Author: Jan Toodre
  *
  */

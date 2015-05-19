@@ -1,7 +1,5 @@
 /*
 Copyright (c) 2015, Broadcom Europe Ltd
-Copyright (c) 2015, Silvan Melchior
-Copyright (c) 2015, Robert Tidey
 Copyright (c) 2015, Jan Toodre
 All rights reserved.
 
@@ -33,7 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * Handling SQL queries
  *
  * \date 18th April 2015
- * \Author: Robert Tidey / Jan Toodre
+ * \Author: Jan Toodre
  *
  *
  */
@@ -267,7 +265,7 @@ bool purge(int timestamp, int key){
 				return 0;
 			}
 			memset(query,0,SQL_QUERY_SIZE);
-			snprintf(query,SQL_QUERY_SIZE, "sudo rm %s%s",sql_stru[key],videoArray[elnum]);
+			snprintf(query,SQL_QUERY_SIZE, "sudo rm %s%s*",sql_stru[key],videoArray[elnum]);//should remove .th aswell
 			system(query);
 			memset(query,0,SQL_QUERY_SIZE);
 		}

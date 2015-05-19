@@ -1,7 +1,5 @@
 /*
 Copyright (c) 2015, Broadcom Europe Ltd
-Copyright (c) 2015, Silvan Melchior
-Copyright (c) 2015, Robert Tidey
 Copyright (c) 2015, Jan Toodre
 All rights reserved.
 
